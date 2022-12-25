@@ -1,15 +1,107 @@
+/// Provide methods to decode objects from a vector of bytes.
+///
+/// # Usage
+/// The `decoded` method should be used when decoding a slice into an object, alternatively if decoding
+/// multiple objects at a time, the `decode_from_buf` method can be used. Implementations have been
+/// provided for some common types but for custom types or other types the trait can be implemented
+/// using the below instructions.
+///
+/// ## Example
+/// ```
+/// use byte_coding::Decodable;
+///
+/// let data = vec![1, 4, 0, 0, 0, 0, 0, 0, 0, b't', b'e', b's', b't'];
+/// let decoded: Option<String> = Decodable::decode(&data).unwrap();
+///
+/// // Call the encoded method to convert to a buffer
+/// assert_eq!(Some("test".to_string()), decoded);
+/// ```
+///
+/// # Implementing
+/// When implementing this trait, you must implement the `decode_from_buf` method. This method should
+/// consume as much of the input buffer as necessary to decode the object and return any left over in
+/// the tuple as a result with the decoded object. This is to allow the chaining of multiple decodes.
+/// If an error occurs or the input data is poorly formatted, you should return None to indicate to the
+/// caller that an error occurred.
+///
+/// ## Example
+/// The below example is an implementation of the trait for an example struct.
+/// ```
+/// use byte_coding::Decodable;
+///
+/// struct Example {
+///     f1: String,
+///     f2: u16
+/// }
+///
+/// impl Decodable for Example {
+///     fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+///         let (f1, buffer) = Decodable::decode_from_buf(buffer)?;
+///         let (f2, buffer) = Decodable::decode_from_buf(buffer)?;
+///
+///         return Some((Example {f1, f2}, buffer));
+///     }
+/// }
+/// ```
+///
+/// You can then encode the object like any other type
+/// ```
+/// # use byte_coding::Decodable;
+/// # #[derive(Debug, PartialEq)]
+/// # struct Example {
+/// #     f1: String,
+/// #     f2: u16
+/// # }
+/// #
+/// # impl Decodable for Example {
+/// #     fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+/// #         let (f1, buffer) = Decodable::decode_from_buf(buffer)?;
+/// #         let (f2, buffer) = Decodable::decode_from_buf(buffer)?;
+/// #
+/// #         return Some((Example {f1, f2}, buffer));
+/// #     }
+/// # }
+/// #
+/// let data = vec![7, 0, 0, 0, 0, 0, 0, 0, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 255, 255];
+/// let decoded: Example = Decodable::decode(&data).unwrap();
+///
+/// assert_eq!(Example {
+///     f1: "example".to_string(),
+///     f2: 65535
+/// }, decoded);
+/// ```
 pub trait Decodable
 where
     Self: Sized,
 {
+    /// Decodes a slice of bytes into the object implemented on. If the decode fails, a `None`
+    /// value is returned instead.
+    ///
+    /// ### Example
+    /// ```
+    /// use byte_coding::Decodable;
+    ///
+    /// let src = vec![255, 255];
+    /// let decoded = u16::decode(&src).unwrap();
+    /// assert_eq!(65535, decoded);
+    /// ```
     fn decode(bytes: &[u8]) -> Option<Self> {
         return Self::decode_from_buf(bytes).map(|(v, _)| v);
     }
 
-    fn decode_vec(bytes: Vec<u8>) -> Option<Self> {
-        return Self::decode_from_buf(&bytes).map(|(v, _)| v);
-    }
-
+    /// Decodes a slice of bytes into the object implemented on, returns a slice of the input
+    /// buffer which contains only unprocessed bytes. If the decode fails, a `None` value is
+    /// returned instead.
+    ///
+    /// ### Example
+    /// ```
+    /// use byte_coding::Decodable;
+    ///
+    /// let src = vec![255, 255, 0, 0, 0];
+    /// let (decoded, buffer) = u16::decode_from_buf(&src).unwrap();
+    /// assert_eq!(65535, decoded);
+    /// assert_eq!(buffer, &[0, 0, 0]);
+    /// ```
     fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])>;
 }
 
@@ -79,17 +171,83 @@ impl Decodable for u128 {
     }
 }
 
-impl Decodable for i64 {
+impl Decodable for i8 {
     fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
-        if buffer.len() < 8 {
+        const BYTES: usize = 1;
+
+        if buffer.len() < BYTES {
             return None;
         }
 
-        let mut bytes_array = [0u8; 8];
+        let mut bytes_array = [0u8; BYTES];
 
-        bytes_array.copy_from_slice(&buffer[0..8]);
+        bytes_array.copy_from_slice(&buffer[0..BYTES]);
 
-        return Some((Self::from_le_bytes(bytes_array), &buffer[8..]));
+        return Some((Self::from_le_bytes(bytes_array), &buffer[BYTES..]));
+    }
+}
+
+impl Decodable for i16 {
+    fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+        const BYTES: usize = 2;
+
+        if buffer.len() < BYTES {
+            return None;
+        }
+
+        let mut bytes_array = [0u8; BYTES];
+
+        bytes_array.copy_from_slice(&buffer[0..BYTES]);
+
+        return Some((Self::from_le_bytes(bytes_array), &buffer[BYTES..]));
+    }
+}
+
+impl Decodable for i32 {
+    fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+        const BYTES: usize = 4;
+
+        if buffer.len() < BYTES {
+            return None;
+        }
+
+        let mut bytes_array = [0u8; BYTES];
+
+        bytes_array.copy_from_slice(&buffer[0..BYTES]);
+
+        return Some((Self::from_le_bytes(bytes_array), &buffer[BYTES..]));
+    }
+}
+
+impl Decodable for i64 {
+    fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+        const BYTES: usize = 8;
+
+        if buffer.len() < BYTES {
+            return None;
+        }
+
+        let mut bytes_array = [0u8; BYTES];
+
+        bytes_array.copy_from_slice(&buffer[0..BYTES]);
+
+        return Some((Self::from_le_bytes(bytes_array), &buffer[BYTES..]));
+    }
+}
+
+impl Decodable for i128 {
+    fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+        const BYTES: usize = 16;
+
+        if buffer.len() < BYTES {
+            return None;
+        }
+
+        let mut bytes_array = [0u8; BYTES];
+
+        bytes_array.copy_from_slice(&buffer[0..BYTES]);
+
+        return Some((Self::from_le_bytes(bytes_array), &buffer[BYTES..]));
     }
 }
 
@@ -192,9 +350,7 @@ impl Decodable for String {
         let (len, buffer) = u64::decode_from_buf(buffer)?;
 
         return Some((
-            std::str::from_utf8(&buffer[0..len as usize])
-                .ok()?
-                .to_string(),
+            String::from_utf8(buffer[0..len as usize].to_vec()).ok()?,
             &buffer[len as usize..],
         ));
     }
