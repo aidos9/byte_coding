@@ -1,0 +1,12 @@
+[package]
+name = "byte_coding"
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[features]
+default = ["derive"]
+derive = ["byte_coding_derive"]
+
+[dependencies]
+byte_coding_derive = { path = "byte_coding_derive", optional = true }
