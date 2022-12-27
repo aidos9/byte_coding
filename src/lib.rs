@@ -9,6 +9,7 @@
 //!
 //! ### Features
 //! - `derive` - Enables the derive macros for enums and structs (default)
+//! - `coder` - Enables the [Coder] struct as a simple front end for decoding multiple objects
 //!
 //! # Example
 //! ```
@@ -44,6 +45,11 @@
 
 mod decodable;
 mod encodable;
+
+#[cfg(feature = "coder")]
+mod coder;
+#[cfg(feature = "coder")]
+pub use coder::Coder;
 
 #[cfg(feature = "derive")]
 pub use byte_coding_derive::*;

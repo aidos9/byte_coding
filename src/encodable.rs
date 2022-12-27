@@ -246,6 +246,12 @@ impl Encodable for [bool; 8] {
     }
 }
 
+impl<T: Encodable> Encodable for &T {
+    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
+        (*self).encode_to_buf(buf);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
