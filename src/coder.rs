@@ -24,7 +24,7 @@ pub struct Coder {
 }
 
 impl Coder {
-    /// Creates a new coder with an empty buffer. Equivalent to [Coder::Default].
+    /// Creates a new coder with an empty buffer.
     pub fn new() -> Self {
         return Self::default();
     }
