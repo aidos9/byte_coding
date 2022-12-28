@@ -1,3 +1,15 @@
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+#[cfg(feature = "std")]
+use std::hash::Hash;
+
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 /// Provide methods to decode objects from a vector of bytes.
 ///
 /// # Usage
@@ -356,11 +368,36 @@ impl Decodable for String {
     }
 }
 
+#[cfg(feature = "std")]
+impl<K: Decodable + Eq + Hash, V: Decodable> Decodable for HashMap<K, V> {
+    fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+        let (length, mut buffer) = usize::decode_from_buf(buffer)?;
+
+        let mut map = Self::new();
+
+        for _ in 0..length {
+            let (key, buf) = K::decode_from_buf(buffer)?;
+            let (value, buf) = V::decode_from_buf(buf)?;
+            buffer = buf;
+
+            map.insert(key, value);
+        }
+
+        return Some((map, buffer));
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::Encodable;
 
     use super::*;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::string::ToString;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
 
     #[test]
     fn test_u8() {

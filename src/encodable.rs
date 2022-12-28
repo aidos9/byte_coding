@@ -1,3 +1,13 @@
+#[cfg(feature = "std")]
+use std::collections::HashMap;
+
+#[cfg(not(feature = "std"))]
+use alloc::boxed::Box;
+#[cfg(not(feature = "std"))]
+use alloc::string::String;
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 /// Provide methods to encode objects into a vector of bytes.
 ///
 /// # Usage
@@ -252,9 +262,24 @@ impl<T: Encodable> Encodable for &T {
     }
 }
 
+#[cfg(feature = "std")]
+impl<K: Encodable, V: Encodable> Encodable for HashMap<K, V> {
+    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
+        self.len().encode_to_buf(buf);
+
+        for (k, v) in self {
+            k.encode_to_buf(buf);
+            v.encode_to_buf(buf);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
 
     #[test]
     fn test_encoding_bool() {

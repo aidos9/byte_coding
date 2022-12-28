@@ -9,6 +9,7 @@
 //!
 //! ### Features
 //! - `derive` - Enables the derive macros for enums and structs (default)
+//! - `std` - Enables features which required std (default)
 //! - `coder` - Enables the [Coder] struct as a simple front end for decoding multiple objects
 //!
 //! # Example
@@ -42,6 +43,11 @@
 //! ```
 //!
 //! See the [Encodable] and [Decodable] traits for further details
+
+#![cfg_attr(not(feature = "std"), no_std)]
+
+#[cfg(not(feature = "std"))]
+extern crate alloc;
 
 mod decodable;
 mod encodable;

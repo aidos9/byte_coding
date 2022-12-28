@@ -1,5 +1,8 @@
 use crate::{Decodable, Encodable};
 
+#[cfg(not(feature = "std"))]
+use alloc::vec::Vec;
+
 /// This object is a simple frontend that is useful when encoding or decoding multiple
 /// objects where a new struct is not desired. To use this object enable the 'coder'
 /// feature. This feature is enabled by default.
@@ -92,6 +95,12 @@ impl From<Vec<u8>> for Coder {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(not(feature = "std"))]
+    use alloc::string::{String, ToString};
+
+    #[cfg(not(feature = "std"))]
+    use alloc::vec;
 
     #[test]
     fn test_decode_next_object() {
