@@ -2,6 +2,7 @@ use std::collections::BTreeSet;
 
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned, ToTokens};
+use syn::Path;
 use syn::{
     spanned::Spanned, Data, DataEnum, DeriveInput, FieldsNamed, FieldsUnnamed, Index, Variant,
 };
@@ -47,7 +48,7 @@ pub fn encoding(input: &DeriveInput) -> TokenStream {
     };
 
     let enc_leading = if let Some(f) = toplevel_attr.pre_enc_func {
-        let f_name = format_ident!("{}", f);
+        let f_name = syn::parse_str::<Path>(&f).unwrap();
 
         quote! {
             let data = #f_name (self);
@@ -59,7 +60,7 @@ pub fn encoding(input: &DeriveInput) -> TokenStream {
     };
 
     let enc_post = if let Some(f) = toplevel_attr.post_enc_func {
-        let f_name = format_ident!("{}", f);
+        let f_name = syn::parse_str::<Path>(&f).unwrap();
 
         quote! {
             #f_name (buf);

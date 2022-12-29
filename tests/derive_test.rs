@@ -34,6 +34,22 @@ mod derive_tests {
         A4(u32, u64),
     }
 
+    #[derive(Encodable, Decodable, Debug, PartialEq, Clone)]
+    #[byte_coding(pre_enc_func = "Self::make_f2_none")]
+    struct Example4 {
+        f1: String,
+        f2: Option<String>,
+    }
+
+    impl Example4 {
+        fn make_f2_none(e4: &Example4) -> Example4 {
+            return Example4 {
+                f2: None,
+                f1: e4.f1.clone(),
+            };
+        }
+    }
+
     fn change_example2(e2: &Example2) -> Example2 {
         return Example2 {
             a: "cows".to_string(),
@@ -124,6 +140,16 @@ mod derive_tests {
                 value.encoded(),
                 vec![4, 0, 100, 0, 0, 0, 200, 0, 0, 0, 0, 0, 0, 0]
             );
+        }
+
+        #[test]
+        fn test_example4_encoding() {
+            let value = Example4 {
+                f1: "f1".to_string(),
+                f2: Some("field_2".to_string()),
+            };
+
+            assert_eq!(value.encoded(), vec![2, 0, 0, 0, 0, 0, 0, 0, b'f', b'1', 0]);
         }
     }
 

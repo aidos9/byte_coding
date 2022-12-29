@@ -3,7 +3,7 @@ use std::collections::BTreeSet;
 use proc_macro2::TokenStream;
 use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
-use syn::{Data, DataEnum, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Index};
+use syn::{Data, DataEnum, DeriveInput, Fields, FieldsNamed, FieldsUnnamed, Index, Path};
 
 use crate::byte_coding_attr::{
     ByteCodingAttr, ByteCodingEnumVariantAttr, ByteCodingStructFieldAttr, EnumEncodingType,
@@ -44,7 +44,7 @@ pub fn decoding(input: &DeriveInput) -> TokenStream {
     };
 
     let pre_dec_func = if let Some(f) = toplevel_attr.pre_dec_func {
-        let f_name = format_ident!("{}", f);
+        let f_name = syn::parse_str::<Path>(&f).unwrap();
 
         quote! {
             buffer = #f_name (buffer)?;
@@ -54,7 +54,7 @@ pub fn decoding(input: &DeriveInput) -> TokenStream {
     };
 
     let post_dec_func = if let Some(f) = toplevel_attr.post_dec_func {
-        let f_name = format_ident!("{}", f);
+        let f_name = syn::parse_str::<Path>(&f).unwrap();
 
         quote! {
             let r = #f_name (decoded_res, buffer)?;
