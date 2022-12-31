@@ -1,5 +1,7 @@
 #[cfg(all(not(feature = "std"), feature = "bool_arr_optimization"))]
 use core::any::{Any, TypeId};
+#[cfg(all(not(feature = "std"), feature = "bool_arr_optimization"))]
+use core::mem::ManuallyDrop;
 
 #[cfg(all(feature = "std", feature = "bool_arr_optimization"))]
 use std::any::{Any, TypeId};
@@ -16,8 +18,6 @@ use alloc::boxed::Box;
 use alloc::string::String;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
-#[cfg(not(feature = "std"))]
-use core::mem::ManuallyDrop;
 
 /// Provide methods to decode objects from a vector of bytes.
 ///
