@@ -5,10 +5,11 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 
 [features]
-default = ["derive", "coder", "std"]
+default = ["derive", "coder", "std", "bool_arr_optimization"]
 derive = ["byte_coding_derive"]
 coder = []
 std = []
+bool_arr_optimization = []
 
 [dependencies]
 byte_coding_derive = { path = "byte_coding_derive", optional = true }

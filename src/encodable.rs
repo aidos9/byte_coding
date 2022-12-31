@@ -1,3 +1,8 @@
+#[cfg(all(not(feature = "std"), feature = "bool_arr_optimization"))]
+use core::any::{Any, TypeId};
+
+#[cfg(all(feature = "std", feature = "bool_arr_optimization"))]
+use std::any::{Any, TypeId};
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 
@@ -216,12 +221,52 @@ impl<T: Encodable> Encodable for Box<T> {
     }
 }
 
+#[cfg(feature = "bool_arr_optimization")]
+impl<T: Encodable + Any> Encodable for Vec<T> {
+    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
+        self.as_slice().encode_to_buf(buf);
+    }
+}
+
+#[cfg(not(feature = "bool_arr_optimization"))]
 impl<T: Encodable> Encodable for Vec<T> {
     fn encode_to_buf(&self, buf: &mut Vec<u8>) {
         self.as_slice().encode_to_buf(buf);
     }
 }
 
+#[cfg(feature = "bool_arr_optimization")]
+impl<T: Encodable + Any> Encodable for &[T] {
+    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
+        self.len().encode_to_buf(buf);
+
+        if TypeId::of::<T>() == TypeId::of::<bool>() {
+            // Optimized boolean storage
+            let mut byte: u8 = 0b0000_0000;
+
+            for i in 0..self.len() {
+                if i % 8 == 0 && i != 0 {
+                    byte.encode_to_buf(buf);
+                    byte = 0;
+                }
+
+                let b: &bool = unsafe { core::mem::transmute(&self[i]) };
+
+                if *b {
+                    byte |= 1 << (i % 8);
+                }
+            }
+
+            byte.encode_to_buf(buf);
+        } else {
+            for item in self.iter() {
+                item.encode_to_buf(buf);
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "bool_arr_optimization"))]
 impl<T: Encodable> Encodable for &[T] {
     fn encode_to_buf(&self, buf: &mut Vec<u8>) {
         self.len().encode_to_buf(buf);
@@ -232,27 +277,49 @@ impl<T: Encodable> Encodable for &[T] {
     }
 }
 
+impl Encodable for bool {
+    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
+        let v: u8 = if *self { 1 } else { 0 };
+
+        v.encode_to_buf(buf);
+    }
+}
+
+#[cfg(feature = "bool_arr_optimization")]
+impl<T: Encodable + Any, const N: usize> Encodable for [T; N] {
+    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
+        if TypeId::of::<T>() == TypeId::of::<bool>() {
+            // Optimized boolean storage
+            let mut byte: u8 = 0b0000_0000;
+
+            for i in 0..self.len() {
+                if i % 8 == 0 && i != 0 {
+                    byte.encode_to_buf(buf);
+                    byte = 0;
+                }
+
+                let b: &bool = unsafe { core::mem::transmute(&self[i]) };
+
+                if *b {
+                    byte |= 1 << (i % 8);
+                }
+            }
+
+            byte.encode_to_buf(buf);
+        } else {
+            for item in self.iter() {
+                item.encode_to_buf(buf);
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "bool_arr_optimization"))]
 impl<T: Encodable, const N: usize> Encodable for [T; N] {
     fn encode_to_buf(&self, buf: &mut Vec<u8>) {
         for item in self.iter() {
             item.encode_to_buf(buf);
         }
-    }
-}
-
-impl Encodable for [bool; 8] {
-    fn encode_to_buf(&self, buf: &mut Vec<u8>) {
-        let mut byte: u8 = 0b0000_0000;
-
-        for b in self {
-            byte <<= 1;
-
-            if *b {
-                byte |= 0b0000_0001;
-            }
-        }
-
-        byte.encode_to_buf(buf);
     }
 }
 
@@ -283,14 +350,88 @@ mod tests {
 
     #[test]
     fn test_encoding_bool() {
-        let bools = [true, true, false, false, true, true, false, false];
-        assert_eq!(bools.encoded(), vec![0b11001100]);
+        let bool = true;
+        let out = bool.encoded();
+
+        let expected = vec![1];
+
+        assert_eq!(out, expected);
     }
 
     #[test]
-    fn test_encoding_bool_2() {
+    fn test_encoding_bool_arr_1() {
+        let bools = [true, true, false, false, true, true, false, false];
+        let out = bools.encoded();
+        #[cfg(feature = "bool_arr_optimization")]
+        let expected = vec![0b110011];
+        #[cfg(not(feature = "bool_arr_optimization"))]
+        let expected = vec![1, 1, 0, 0, 1, 1, 0, 0];
+
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn test_encoding_bool_arr_2() {
         let bools = [true, false, true, false, true, false, true, false];
-        assert_eq!(bools.encoded(), vec![0b10101010]);
+        let out = bools.encoded();
+
+        #[cfg(feature = "bool_arr_optimization")]
+        let expected = vec![0b01010101];
+        #[cfg(not(feature = "bool_arr_optimization"))]
+        let expected = vec![1, 0, 1, 0, 1, 0, 1, 0];
+
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn test_encoding_bool_arr_3() {
+        let bools = [
+            true, false, true, false, true, false, true, false, true, false, true, false, true,
+            false, true, false,
+        ];
+        let out = bools.encoded();
+
+        #[cfg(feature = "bool_arr_optimization")]
+        let expected = vec![0b01010101, 0b01010101];
+        #[cfg(not(feature = "bool_arr_optimization"))]
+        let expected = vec![1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0];
+
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn test_encoding_bool_arr_4() {
+        let bools = [
+            true, false, true, false, true, false, true, false, true, false, true, false, true,
+            false, true, false, true, true,
+        ];
+        let out = bools.encoded();
+
+        #[cfg(feature = "bool_arr_optimization")]
+        let expected = vec![0b01010101, 0b01010101, 0b11];
+        #[cfg(not(feature = "bool_arr_optimization"))]
+        let expected = vec![1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1];
+
+        assert_eq!(out, expected);
+    }
+
+    #[test]
+    fn test_encoding_bool_slice() {
+        let bools = [
+            true, false, true, false, true, false, true, false, true, false, true, false, true,
+            false, true, false, true, true,
+        ]
+        .as_slice();
+        let out = bools.encoded();
+
+        #[cfg(feature = "bool_arr_optimization")]
+        let expected = vec![18, 0, 0, 0, 0, 0, 0, 0, 0b01010101, 0b01010101, 0b11];
+        #[cfg(not(feature = "bool_arr_optimization"))]
+        let expected = vec![
+            18, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 1,
+        ];
+
+        assert_eq!(out, expected);
     }
 
     #[test]
