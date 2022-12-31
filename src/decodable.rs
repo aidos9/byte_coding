@@ -1,3 +1,8 @@
+#[cfg(all(not(feature = "std"), feature = "bool_arr_optimization"))]
+use core::any::{Any, TypeId};
+
+#[cfg(all(feature = "std", feature = "bool_arr_optimization"))]
+use std::any::{Any, TypeId};
 #[cfg(feature = "std")]
 use std::collections::HashMap;
 #[cfg(feature = "std")]
@@ -297,6 +302,56 @@ impl<T: Decodable> Decodable for Box<T> {
     }
 }
 
+#[cfg(feature = "bool_arr_optimization")]
+impl<T: Decodable + Any + Clone> Decodable for Vec<T> {
+    fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
+        if TypeId::of::<T>() == TypeId::of::<bool>() {
+            let (len, buffer) = usize::decode_from_buf(buffer)?;
+            let mut res = Vec::with_capacity(len);
+
+            let bytes = len / 8 + if len % 8 != 0 { 1 } else { 0 };
+            let mut t = 0;
+
+            for i in 0..bytes {
+                let b = buffer[i];
+
+                for i in 0..8 {
+                    if t >= len {
+                        break;
+                    }
+
+                    if b & (1 << i) != 0 {
+                        res.push(true);
+                    } else {
+                        res.push(false);
+                    }
+
+                    t += 1;
+                }
+            }
+
+            let p = &res as *const Vec<bool> as *const Vec<T>;
+            let r: &Vec<T> = unsafe { &*p };
+
+            return Some((r.clone(), &buffer[bytes..]));
+        } else {
+            let (len, mut buffer) = usize::decode_from_buf(buffer)?;
+
+            let mut vec = Vec::with_capacity(len);
+
+            for _ in 0..len {
+                let res = T::decode_from_buf(buffer)?;
+
+                vec.push(res.0);
+                buffer = res.1;
+            }
+
+            return Some((vec, buffer));
+        }
+    }
+}
+
+#[cfg(not(feature = "bool_arr_optimization"))]
 impl<T: Decodable> Decodable for Vec<T> {
     fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
         let (len, mut buffer) = usize::decode_from_buf(buffer)?;
@@ -314,6 +369,50 @@ impl<T: Decodable> Decodable for Vec<T> {
     }
 }
 
+#[cfg(feature = "bool_arr_optimization")]
+impl<T: Decodable + Any + Clone, const N: usize> Decodable for [T; N] {
+    fn decode_from_buf(mut buffer: &[u8]) -> Option<(Self, &[u8])> {
+        if TypeId::of::<T>() == TypeId::of::<bool>() {
+            let mut res = [false; N];
+            let bytes = N / 8 + if N % 8 != 0 { 1 } else { 0 };
+            let mut t = 0;
+
+            for i in 0..bytes {
+                let b = buffer[i];
+
+                for i in 0..8 {
+                    if t >= N {
+                        break;
+                    }
+
+                    if b & (1 << i) != 0 {
+                        res[t] = true;
+                    }
+
+                    t += 1;
+                }
+            }
+
+            let p = &res as *const [bool; N] as *const [T; N];
+            let r: &[T; N] = unsafe { &*p };
+
+            return Some((r.clone(), &buffer[bytes..]));
+        } else {
+            let mut vec = Vec::with_capacity(N);
+
+            for _ in 0..N {
+                let res = T::decode_from_buf(buffer)?;
+
+                vec.push(res.0);
+                buffer = res.1;
+            }
+
+            return Some((vec.try_into().ok()?, buffer));
+        }
+    }
+}
+
+#[cfg(not(feature = "bool_arr_optimization"))]
 impl<T: Decodable, const N: usize> Decodable for [T; N] {
     fn decode_from_buf(mut buffer: &[u8]) -> Option<(Self, &[u8])> {
         let mut vec = Vec::with_capacity(N);
@@ -329,19 +428,15 @@ impl<T: Decodable, const N: usize> Decodable for [T; N] {
     }
 }
 
-impl Decodable for [bool; 8] {
+impl Decodable for bool {
     fn decode_from_buf(buffer: &[u8]) -> Option<(Self, &[u8])> {
         if buffer.len() < 1 {
             return None;
         }
 
-        let mut res = [false; 8];
+        let (v, buffer) = u8::decode_from_buf(buffer)?;
 
-        for i in 0..8 {
-            res[7 - i] = (buffer[0] & (1 << i)) != 0;
-        }
-
-        return Some((res, &buffer[1..]));
+        return Some((v > 0, buffer));
     }
 }
 
@@ -472,10 +567,64 @@ mod tests {
     }
 
     #[test]
+    fn test_bool_array_2() {
+        let b = [
+            true, false, true, false, true, false, true, false, true, false, true, false, true,
+            false, true, false,
+        ];
+        let encoded = b.encoded();
+        let res: [bool; 16] = Decodable::decode(&encoded).unwrap();
+
+        assert_eq!(b, res);
+    }
+
+    #[test]
+    fn test_bool_array_3() {
+        let b = [
+            true, false, true, false, true, false, true, false, true, false, true, false, true,
+            false, true, false, true,
+        ];
+        let encoded = b.encoded();
+        let res: [bool; 17] = Decodable::decode(&encoded).unwrap();
+
+        assert_eq!(b, res);
+    }
+
+    #[test]
     fn test_vec() {
         let b = vec![1u64, 2, 3, 4];
         let encoded = b.encoded();
         let res: Vec<u64> = Decodable::decode(&encoded).unwrap();
+
+        assert_eq!(b, res);
+    }
+
+    #[test]
+    fn test_vec_bool_1() {
+        let b = vec![true, false, true];
+        let encoded = b.encoded();
+        let res: Vec<bool> = Decodable::decode(&encoded).unwrap();
+
+        assert_eq!(b, res);
+    }
+
+    #[test]
+    fn test_vec_bool_2() {
+        let b = vec![true, false, true, true, false, true, true, false];
+        let encoded = b.encoded();
+        let res: Vec<bool> = Decodable::decode(&encoded).unwrap();
+
+        assert_eq!(b, res);
+    }
+
+    #[test]
+    fn test_vec_bool_3() {
+        let b = vec![
+            true, false, true, true, false, true, true, false, true, true, false, true, true,
+            false, true, true, false, true,
+        ];
+        let encoded = b.encoded();
+        let res: Vec<bool> = Decodable::decode(&encoded).unwrap();
 
         assert_eq!(b, res);
     }
@@ -487,5 +636,14 @@ mod tests {
         let res: [String; 4] = Decodable::decode(&encoded).unwrap();
 
         assert_eq!(b.map(|v| v.to_string()), res);
+    }
+
+    #[test]
+    fn test_bool() {
+        let b = true;
+        let encoded = b.encoded();
+        let res: bool = Decodable::decode(&encoded).unwrap();
+
+        assert_eq!(b, res);
     }
 }
