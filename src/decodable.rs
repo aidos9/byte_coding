@@ -7,6 +7,8 @@ use std::any::{Any, TypeId};
 use std::collections::HashMap;
 #[cfg(feature = "std")]
 use std::hash::Hash;
+#[cfg(feature = "std")]
+use std::mem::ManuallyDrop;
 
 #[cfg(not(feature = "std"))]
 use alloc::boxed::Box;
@@ -14,6 +16,8 @@ use alloc::boxed::Box;
 use alloc::string::String;
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
+#[cfg(not(feature = "std"))]
+use core::mem::ManuallyDrop;
 
 /// Provide methods to decode objects from a vector of bytes.
 ///
@@ -330,10 +334,12 @@ impl<T: Decodable + Any + Clone> Decodable for Vec<T> {
                 }
             }
 
-            let p = &res as *const Vec<bool> as *const Vec<T>;
-            let r: &Vec<T> = unsafe { &*p };
+            // Perform some trickery to trick rust into being able to cast to T which we know is bool
+            let mut res = ManuallyDrop::new(res);
+            let rp = (res.as_mut_ptr() as *mut T, res.len(), res.capacity());
+            let res = unsafe { Vec::from_raw_parts(rp.0, rp.1, rp.2) };
 
-            return Some((r.clone(), &buffer[bytes..]));
+            return Some((res, &buffer[bytes..]));
         } else {
             let (len, mut buffer) = usize::decode_from_buf(buffer)?;
 
@@ -373,7 +379,8 @@ impl<T: Decodable> Decodable for Vec<T> {
 impl<T: Decodable + Any + Clone, const N: usize> Decodable for [T; N] {
     fn decode_from_buf(mut buffer: &[u8]) -> Option<(Self, &[u8])> {
         if TypeId::of::<T>() == TypeId::of::<bool>() {
-            let mut res = [false; N];
+            let mut res = Box::new([false; N]);
+
             let bytes = N / 8 + if N % 8 != 0 { 1 } else { 0 };
             let mut t = 0;
 
@@ -393,10 +400,9 @@ impl<T: Decodable + Any + Clone, const N: usize> Decodable for [T; N] {
                 }
             }
 
-            let p = &res as *const [bool; N] as *const [T; N];
-            let r: &[T; N] = unsafe { &*p };
+            let b = unsafe { Box::from_raw(Box::into_raw(res) as *mut [T; N]) };
 
-            return Some((r.clone(), &buffer[bytes..]));
+            return Some((*b, &buffer[bytes..]));
         } else {
             let mut vec = Vec::with_capacity(N);
 
