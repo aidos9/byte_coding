@@ -41,6 +41,13 @@ mod derive_tests {
         f2: Option<String>,
     }
 
+    #[derive(Encodable, Decodable, Debug, PartialEq, Clone)]
+    struct Example5 {
+        f1: String,
+        #[byte_coding(ignore)]
+        f2: Option<String>,
+    }
+
     impl Example4 {
         fn make_f2_none(e4: &Example4) -> Example4 {
             return Example4 {
@@ -151,6 +158,16 @@ mod derive_tests {
 
             assert_eq!(value.encoded(), vec![2, 0, 0, 0, 0, 0, 0, 0, b'f', b'1', 0]);
         }
+
+        #[test]
+        fn test_example5_encoding() {
+            let value = Example5 {
+                f1: "f1".to_string(),
+                f2: Some("field_2".to_string()),
+            };
+
+            assert_eq!(value.encoded(), vec![2, 0, 0, 0, 0, 0, 0, 0, b'f', b'1']);
+        }
     }
 
     mod decoding {
@@ -172,7 +189,7 @@ mod derive_tests {
         }
 
         #[test]
-        fn test_example2_encoding() {
+        fn test_example2_decoding() {
             let example2 = Example2 {
                 a: "test".to_string(),
                 b: "dogs".to_string(),
@@ -191,7 +208,7 @@ mod derive_tests {
         }
 
         #[test]
-        fn test_example3_encoding_1() {
+        fn test_example3_decoding_1() {
             let value = Example3::A1;
 
             let encoded = value.encoded();
@@ -201,7 +218,7 @@ mod derive_tests {
         }
 
         #[test]
-        fn test_example3_encoding_2() {
+        fn test_example3_decoding_2() {
             let value = Example3::A2;
 
             let encoded = value.encoded();
@@ -211,7 +228,7 @@ mod derive_tests {
         }
 
         #[test]
-        fn test_example3_encoding_3() {
+        fn test_example3_decoding_3() {
             let value = Example3::A3 { f1: 100, f2: 200 };
 
             let encoded = value.encoded();
@@ -221,13 +238,32 @@ mod derive_tests {
         }
 
         #[test]
-        fn test_example3_encoding_4() {
+        fn test_example3_decoding_4() {
             let value = Example3::A4(100, 200);
 
             let encoded = value.encoded();
             let decoded = Decodable::decode(&encoded).unwrap();
 
             assert_eq!(value, decoded);
+        }
+
+        #[test]
+        fn test_example5_decoding() {
+            let value = Example5 {
+                f1: "f1".to_string(),
+                f2: Some("field_2".to_string()),
+            };
+
+            let encoded = value.encoded();
+            let decoded: Example5 = Decodable::decode(&encoded).unwrap();
+
+            assert_eq!(
+                decoded,
+                Example5 {
+                    f1: "f1".to_string(),
+                    f2: Default::default(),
+                }
+            );
         }
     }
 }

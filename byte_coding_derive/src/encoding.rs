@@ -198,6 +198,10 @@ fn generate_unnamed_struct_fields_code(fields: &FieldsUnnamed) -> Result<TokenSt
     for (i, f) in fields.unnamed.iter().enumerate() {
         let field_attr = ByteCodingStructFieldAttr::parse_attributes(&f.attrs)?;
 
+        if field_attr.ignore {
+            continue;
+        }
+
         let span = f.span();
         let index = Index::from(i);
 
@@ -223,6 +227,10 @@ fn generate_named_struct_fields_code(fields: &FieldsNamed) -> Result<TokenStream
 
     for f in fields.named.iter() {
         let field_attr = ByteCodingStructFieldAttr::parse_attributes(&f.attrs)?;
+
+        if field_attr.ignore {
+            continue;
+        }
 
         let span = f.span();
         let name = &f.ident;

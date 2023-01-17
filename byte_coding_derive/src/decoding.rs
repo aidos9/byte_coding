@@ -218,17 +218,29 @@ fn generate_unnamed_struct_fields_code(fields: &FieldsUnnamed) -> Result<TokenSt
         let res_name = format_ident!("_res_{}", index);
         let name = format_ident!("_{}", index);
 
-        field_attribute_pairs.push((
-            field_attr,
-            quote_spanned! {span=>
-                let #res_name = Decodable::decode_from_buf(buffer)?;
-                let #name = #res_name.0;
-                buffer = #res_name.1;
-            },
-            quote_spanned! {span=>
-                #name
-            },
-        ));
+        if field_attr.ignore {
+            field_attribute_pairs.push((
+                field_attr,
+                quote_spanned! {span=>
+                    let #name = Default::default();
+                },
+                quote_spanned! {span=>
+                    #name
+                },
+            ));
+        } else {
+            field_attribute_pairs.push((
+                field_attr,
+                quote_spanned! {span=>
+                    let #res_name = Decodable::decode_from_buf(buffer)?;
+                    let #name = #res_name.0;
+                    buffer = #res_name.1;
+                },
+                quote_spanned! {span=>
+                    #name
+                },
+            ));
+        }
     }
 
     field_attribute_pairs.sort_by(|(a, _, _), (b, _, _)| a.orderno_cmp(b));
@@ -256,17 +268,29 @@ fn generate_named_struct_fields_code(fields: &FieldsNamed) -> Result<TokenStream
         let name = &f.ident;
         let res_name = format_ident!("_{}", name.as_ref().unwrap());
 
-        field_attribute_pairs.push((
-            field_attr,
-            quote_spanned! {span=>
-                let #res_name = Decodable::decode_from_buf(buffer)?;
-                let #name = #res_name.0;
-                buffer = #res_name.1;
-            },
-            quote_spanned! {span=>
-                #name
-            },
-        ));
+        if field_attr.ignore {
+            field_attribute_pairs.push((
+                field_attr,
+                quote_spanned! {span=>
+                    let #name = Default::default();
+                },
+                quote_spanned! {span=>
+                    #name
+                },
+            ));
+        } else {
+            field_attribute_pairs.push((
+                field_attr,
+                quote_spanned! {span=>
+                    let #res_name = Decodable::decode_from_buf(buffer)?;
+                    let #name = #res_name.0;
+                    buffer = #res_name.1;
+                },
+                quote_spanned! {span=>
+                    #name
+                },
+            ));
+        }
     }
 
     field_attribute_pairs.sort_by(|(a, _, _), (b, _, _)| a.orderno_cmp(b));

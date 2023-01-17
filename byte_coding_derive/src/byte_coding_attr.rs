@@ -28,6 +28,7 @@ pub struct ByteCodingEnumVariantAttr {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct ByteCodingStructFieldAttr {
     pub order_no: Option<usize>,
+    pub ignore: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -329,6 +330,8 @@ impl ByteCodingStructFieldAttr {
 
     fn merge(&mut self, other: Self) {
         merge_optionals!(self.order_no, other.order_no);
+
+        self.ignore = self.ignore || other.ignore;
     }
 
     fn lit_to_num<N>(literal: &Lit) -> Result<N, TokenStream>
@@ -363,6 +366,20 @@ impl ByteCodingStructFieldAttr {
                 return Err(quote_spanned! {
                     name_value.path.span() =>
                     compile_error!("Unknown attribute name");
+                });
+            }
+        }
+
+        return Ok(());
+    }
+
+    fn set_path(&mut self, path: &syn::Path) -> Result<(), TokenStream> {
+        match path.segments[0].ident.to_string().as_str() {
+            "ignore" => self.ignore = true,
+            _ => {
+                return Err(quote_spanned! {
+                    path.span() =>
+                        compile_error!("Unknown attribute name");
                 });
             }
         }
@@ -406,7 +423,10 @@ impl ByteCodingStructFieldAttr {
 
 impl Default for ByteCodingStructFieldAttr {
     fn default() -> Self {
-        return Self { order_no: None };
+        return Self {
+            order_no: None,
+            ignore: false,
+        };
     }
 }
 
@@ -434,6 +454,9 @@ impl TryFrom<&Meta> for ByteCodingStructFieldAttr {
                     match nested {
                         NestedMeta::Meta(Meta::NameValue(name_value)) => {
                             a.set_name_value(name_value)?;
+                        }
+                        NestedMeta::Meta(Meta::Path(p)) => {
+                            a.set_path(p)?;
                         }
                         NestedMeta::Meta(_) => {
                             return Err(quote_spanned! {

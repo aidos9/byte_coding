@@ -43,6 +43,9 @@ use syn::{parse_macro_input, DeriveInput};
 /// have a value. However, no value can be repeated and any fields without order numbers
 /// will be processed from top to bottom after any fields with order numbers.
 /// e.g. `#[byte_coding(order_no = 0)]`
+/// * `ignore` - Specify this option to ignore decoding this field, this value must have the
+/// Default trait implemented.
+/// e.g. `#[byte_coding(ignore)]`
 ///
 /// #### Enums
 /// * `encoding_type` - A string which indicates what type the enum variant values are,
@@ -157,7 +160,9 @@ use syn::{parse_macro_input, DeriveInput};
 ///     #[byte_coding(order_no = 1)]
 ///     f2: u8,
 ///     #[byte_coding(order_no = 0)]
-///     f3: Option<String>
+///     f3: Option<String>,
+///     #[byte_coding(ignore)]
+///     f4: String,
 /// }
 ///
 /// let encoded = vec![0, 82, 3, 0, 0, 0, 0, 0, 0, 0, b't', b'e', b'a'];
@@ -166,7 +171,8 @@ use syn::{parse_macro_input, DeriveInput};
 /// assert_eq!(decoded, ComplexStruct{
 ///     f1: "tea".to_string(),
 ///     f2: 82,
-///     f3: None
+///     f3: None,
+///     f4: Default::default()
 /// });
 /// ```
 ///
@@ -177,7 +183,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// ```
 /// # use byte_coding::Decodable;
 ///
-/// # #[derive(Debug, PartialEq)]
+/// # #[derive(Clone, Debug, PartialEq)]
 /// #[derive(Decodable)]
 /// #[byte_coding(encoding_type = "u8")]
 /// enum ExampleEnum {
@@ -277,6 +283,8 @@ pub fn decodable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// have a value. However, no value can be repeated and any fields without order numbers
 /// will be processed from top to bottom after any fields with order numbers.
 /// e.g. `#[byte_coding(order_no = 0)]`
+/// * `ignore` - Specify this option to ignore encoding this field.
+/// e.g. `#[byte_coding(ignore)]`
 ///
 /// #### Enums
 /// * `encoding_type` - A string which indicates what type the enum variant values are,
@@ -391,14 +399,17 @@ pub fn decodable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 ///     #[byte_coding(order_no = 1)]
 ///     f2: u8,
 ///     #[byte_coding(order_no = 0)]
-///     f3: Option<String>
+///     f3: Option<String>,
+///     #[byte_coding(ignore)]
+///     f4: String,
 /// }
 ///
 /// let comparison_encoded = vec![0, 82, 3, 0, 0, 0, 0, 0, 0, 0, b't', b'e', b'a'];
 /// let encoded = ComplexStruct{
 ///     f1: "tea".to_string(),
 ///     f2: 82,
-///     f3: None
+///     f3: None,
+///     f4: "test".to_string()
 /// }.encoded();
 ///
 /// assert_eq!(encoded, comparison_encoded);
