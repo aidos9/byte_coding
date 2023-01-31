@@ -48,6 +48,41 @@ mod derive_tests {
         f2: Option<String>,
     }
 
+    #[derive(Encodable, Decodable, Debug, PartialEq, Clone)]
+    enum Example6Enum {
+        #[byte_coding(value = 0)]
+        A1,
+        #[byte_coding(value = 1)]
+        A2,
+        #[byte_coding(value = 2)]
+        A3,
+    }
+
+    #[derive(Encodable, Decodable, Debug, PartialEq, Clone)]
+    struct Example6Base {
+        e6_1: Example6Enum,
+        e6_2: Example6Enum,
+    }
+
+    #[derive(Encodable, Decodable, Debug, PartialEq, Clone)]
+    struct Example6 {
+        v1: usize,
+        v2: Example6Base,
+        v3: String,
+        v4: Vec<Example6Enum>,
+        v5: Vec<Example6Base>,
+    }
+
+    #[derive(Encodable, Decodable, Debug, PartialEq, Clone)]
+    #[byte_coding(inferred_values)]
+    enum Example7 {
+        V1,
+        V2,
+        V3,
+        V4 = 678,
+        V5,
+    }
+
     impl Example4 {
         fn make_f2_none(e4: &Example4) -> Example4 {
             return Example4 {
@@ -168,6 +203,34 @@ mod derive_tests {
 
             assert_eq!(value.encoded(), vec![2, 0, 0, 0, 0, 0, 0, 0, b'f', b'1']);
         }
+
+        #[test]
+        fn test_example7_encoding_1() {
+            let value = Example7::V1;
+
+            assert_eq!(value.encoded(), vec![0, 0]);
+        }
+
+        #[test]
+        fn test_example7_encoding_2() {
+            let value = Example7::V2;
+
+            assert_eq!(value.encoded(), vec![1, 0]);
+        }
+
+        #[test]
+        fn test_example7_encoding_3() {
+            let value = Example7::V4;
+
+            assert_eq!(value.encoded(), vec![166, 2]);
+        }
+
+        #[test]
+        fn test_example7_encoding_4() {
+            let value = Example7::V5;
+
+            assert_eq!(value.encoded(), vec![167, 2]);
+        }
     }
 
     mod decoding {
@@ -264,6 +327,42 @@ mod derive_tests {
                     f2: Default::default(),
                 }
             );
+        }
+
+        #[test]
+        fn test_example7_decoding_1() {
+            let value = Example7::V1;
+            let encoded = value.encoded();
+            let decoded: Example7 = Decodable::decode(&encoded).unwrap();
+
+            assert_eq!(value, decoded);
+        }
+
+        #[test]
+        fn test_example7_encoding_2() {
+            let value = Example7::V2;
+            let encoded = value.encoded();
+            let decoded: Example7 = Decodable::decode(&encoded).unwrap();
+
+            assert_eq!(value, decoded);
+        }
+
+        #[test]
+        fn test_example7_encoding_3() {
+            let value = Example7::V4;
+            let encoded = value.encoded();
+            let decoded: Example7 = Decodable::decode(&encoded).unwrap();
+
+            assert_eq!(value, decoded);
+        }
+
+        #[test]
+        fn test_example7_encoding_4() {
+            let value = Example7::V5;
+            let encoded = value.encoded();
+            let decoded: Example7 = Decodable::decode(&encoded).unwrap();
+
+            assert_eq!(value, decoded);
         }
     }
 }
