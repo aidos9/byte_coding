@@ -52,6 +52,11 @@ use syn::{parse_macro_input, DeriveInput};
 /// by default a 'u16' value is used. If a smaller or larger value is required it should
 /// be annotated here. Supported values: `["u8", "u16", "u32", "u64", "u128"]`.
 /// e.g. `#[byte_coding(encoding_type = "u64")]`
+/// * `inferred_values` - A flag which when set indicates the byte_coding can infer values,
+/// by default these are numeric values starting at zero and increasing by 1 for each variant.
+/// You can override any specific variant by manually providing a value for that variant but
+/// any future inferred values will continue from that value.
+/// e.g. ``#[byte_coding(inferred_values)]``
 ///
 /// #### Enum Variants
 /// * `value` - Each enum variant is assigned a positive integer value. By default this
@@ -88,7 +93,7 @@ use syn::{parse_macro_input, DeriveInput};
 /// });
 /// ```
 ///
-/// The below examples are the 2 possible ways for using the derive macro on an enum
+/// The below examples are the 3 possible ways for using the derive macro on an enum
 /// ```
 /// use byte_coding::Decodable;
 ///
@@ -143,6 +148,26 @@ use syn::{parse_macro_input, DeriveInput};
 ///     s: "test".to_string(),
 ///     id: 32
 /// });
+/// ```
+///
+/// Inferred values can also be used
+/// ```
+/// use byte_coding::Decodable;
+///
+/// # #[derive(Debug, PartialEq)]
+/// #[derive(Decodable)]
+/// #[byte_coding(inferred_values)]
+/// enum Example4 {
+///     E2A,
+///     E2B,
+///     E2C
+/// }
+///
+/// // By default enums are encoded using 2 bytes for the ID
+/// let encoded_data = vec![1, 0];
+/// let decoded = Example4::decode(&encoded_data).unwrap();
+///
+/// assert_eq!(decoded, Example4::E2B);
 /// ```
 ///
 /// ### Complex Example
@@ -291,6 +316,11 @@ pub fn decodable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// by default a 'u16' value is used. If a smaller or larger value is required it should
 /// be annotated here. Supported values: `["u8", "u16", "u32", "u64", "u128"]`.
 /// e.g. `#[byte_coding(encoding_type = "u64")]`
+/// * `inferred_values` - A flag which when set indicates the byte_coding can infer values,
+/// by default these are numeric values starting at zero and increasing by 1 for each variant.
+/// You can override any specific variant by manually providing a value for that variant but
+/// any future inferred values will continue from that value.
+/// e.g. ``#[byte_coding(inferred_values)]``
 ///
 /// #### Enum Variants
 /// * `value` - Each enum variant is assigned a positive integer value. By default this
@@ -327,7 +357,7 @@ pub fn decodable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// assert_eq!(comparison_encoded, encoded);
 /// ```
 ///
-/// The below examples are the 2 possible ways for using the derive macro on an enum
+/// The below examples are the 3 possible ways for using the derive macro on an enum
 /// ```
 /// use byte_coding::Encodable;
 ///
@@ -382,6 +412,26 @@ pub fn decodable_derive(input: proc_macro::TokenStream) -> proc_macro::TokenStre
 /// }.encoded();
 ///
 /// assert_eq!(encoded, comparison_encoded);
+/// ```
+///
+/// Inferred values can also be used
+/// ```
+/// use byte_coding::Encodable;
+///
+/// # #[derive(Debug, PartialEq)]
+/// #[derive(Encodable)]
+/// #[byte_coding(inferred_values)]
+/// enum Example4 {
+///     E2A,
+///     E2B,
+///     E2C
+/// }
+///
+/// // By default enums are encoded using 2 bytes for the ID
+/// let comparison_encoded = vec![1, 0];
+/// let encoded = Example4::E2B.encoded();
+///
+/// assert_eq!(comparison_encoded, encoded);
 /// ```
 ///
 /// ### Complex Example
