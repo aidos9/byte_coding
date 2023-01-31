@@ -133,6 +133,8 @@ fn generate_enum_code(
         let value =
             parse_enum_variant_value(last_value, variant, &variant_attr, &mut found_values)?;
 
+        last_value = last_value.map(|_| value);
+
         let mut v = None;
 
         if let Some(ref opt) = toplevel_attr.enum_options {

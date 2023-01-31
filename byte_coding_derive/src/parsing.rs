@@ -64,8 +64,10 @@ pub fn parse_enum_variant_value(
     }
 
     if found_values.contains(&value) {
+        let error_message = format!("2 or more variants share the value: {}", value);
+
         return Err(quote_spanned! {variant.span() =>
-            compile_error!("2 or more variants share the same value.");
+            compile_error!(#error_message);
         });
     } else {
         found_values.insert(value);

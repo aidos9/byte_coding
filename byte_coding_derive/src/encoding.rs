@@ -121,6 +121,8 @@ fn generate_enum_code(
         let value =
             parse_enum_variant_value(last_value, variant, &variant_attr, &mut found_values)?;
 
+        last_value = last_value.map(|_| value);
+
         let v: u16 = match value.try_into() {
             Ok(v) => v,
             Err(_) => {
