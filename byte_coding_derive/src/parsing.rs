@@ -42,11 +42,12 @@ fn expr_to_u128(expr: &Expr) -> Result<u128, TokenStream> {
 }
 
 pub fn parse_enum_variant_value(
+    default_value: Option<u128>,
     variant: &Variant,
     variant_attr: &ByteCodingEnumVariantAttr,
     found_values: &mut BTreeSet<u128>,
 ) -> Result<u128, TokenStream> {
-    if variant.discriminant.is_none() && variant_attr.value.is_none() {
+    if variant.discriminant.is_none() && variant_attr.value.is_none() && default_value.is_none() {
         return Err(quote_spanned! {variant.span()=>
             compile_error!("No discriminant or value provided")
         });
@@ -56,8 +57,10 @@ pub fn parse_enum_variant_value(
 
     if let Some(v) = variant_attr.value {
         value = v;
-    } else {
+    } else if variant.discriminant.is_some() {
         value = expr_to_u128(&variant.discriminant.as_ref().unwrap().1)?;
+    } else {
+        value = default_value.unwrap();
     }
 
     if found_values.contains(&value) {

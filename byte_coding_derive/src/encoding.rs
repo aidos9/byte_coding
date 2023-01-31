@@ -103,10 +103,23 @@ fn generate_enum_code(
 ) -> Result<TokenStream, TokenStream> {
     let mut match_branches: Vec<TokenStream> = Vec::new();
     let mut found_values = BTreeSet::new();
+    let mut last_value: Option<u128> = None;
+    let inferred_values = toplevel_attr.enum_options.is_some()
+        && toplevel_attr.enum_options.as_ref().unwrap().inferred_values;
 
     for variant in &data.variants {
         let variant_attr = ByteCodingEnumVariantAttr::parse_attributes(&variant.attrs)?;
-        let value = parse_enum_variant_value(variant, &variant_attr, &mut found_values)?;
+        last_value = if inferred_values {
+            Some(match last_value {
+                Some(n) => n.wrapping_add(1),
+                None => 0,
+            })
+        } else {
+            None
+        };
+
+        let value =
+            parse_enum_variant_value(last_value, variant, &variant_attr, &mut found_values)?;
 
         let v: u16 = match value.try_into() {
             Ok(v) => v,

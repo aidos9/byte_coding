@@ -18,6 +18,7 @@ pub struct ByteCodingAttr {
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct ByteCodingEnumAttr {
     pub encoding_type: Option<EnumEncodingType>,
+    pub inferred_values: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -96,7 +97,16 @@ impl ByteCodingAttr {
         merge_optionals!(self.pre_dec_func, other.pre_dec_func);
         merge_optionals!(self.post_enc_func, other.post_enc_func);
         merge_optionals!(self.post_dec_func, other.post_dec_func);
-        merge_optionals!(self.enum_options, other.enum_options);
+
+        if let Some(dest_enum_opts) = self.enum_options.as_mut() {
+            if let Some(src_enum_opts) = other.enum_options.as_ref() {
+                merge_optionals!(dest_enum_opts.encoding_type, src_enum_opts.encoding_type);
+                dest_enum_opts.inferred_values =
+                    dest_enum_opts.inferred_values || src_enum_opts.inferred_values;
+            }
+        } else {
+            self.enum_options = other.enum_options;
+        }
 
         return self;
     }
@@ -129,14 +139,42 @@ impl ByteCodingAttr {
                     }
                 };
 
-                self.enum_options = Some(ByteCodingEnumAttr {
-                    encoding_type: Some(variant),
-                });
+                if self.enum_options.is_none() {
+                    self.enum_options = Some(ByteCodingEnumAttr {
+                        encoding_type: Some(variant),
+                        inferred_values: false,
+                    });
+                } else {
+                    self.enum_options.as_mut().unwrap().encoding_type = Some(variant);
+                }
             }
             _ => {
                 return Err(quote_spanned! {
                     name_value.path.span() =>
                     compile_error!("Unknown attribute name");
+                });
+            }
+        }
+
+        return Ok(());
+    }
+
+    fn set_path(&mut self, path: &syn::Path) -> Result<(), TokenStream> {
+        match path.segments[0].ident.to_string().as_str() {
+            "inferred_values" => {
+                if self.enum_options.is_none() {
+                    self.enum_options = Some(ByteCodingEnumAttr {
+                        encoding_type: None,
+                        inferred_values: true,
+                    });
+                } else {
+                    self.enum_options.as_mut().unwrap().inferred_values = true;
+                }
+            }
+            _ => {
+                return Err(quote_spanned! {
+                    path.span() =>
+                        compile_error!("Unknown attribute name");
                 });
             }
         }
@@ -181,6 +219,9 @@ impl TryFrom<&Meta> for ByteCodingAttr {
                     match nested {
                         NestedMeta::Meta(Meta::NameValue(name_value)) => {
                             a.set_name_value(name_value)?;
+                        }
+                        NestedMeta::Meta(Meta::Path(p)) => {
+                            a.set_path(p)?;
                         }
                         NestedMeta::Meta(_) => {
                             return Err(quote_spanned! {
